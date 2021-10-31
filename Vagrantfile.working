@@ -1,0 +1,42 @@
+# Configure Kubernetes Master.  SSH config file. 
+
+Vagrant.configure("2")  do |config|
+    config.vm.define "master" do |master|
+        master.vm.hostname = "kubernetesmaster"
+        master.vm.box = "centos/7"
+        master.vm.network "public_network", 
+            bridge: "Intel(R) 82579LM Gigabit Network Connection",
+            ip: "192.168.0.110" # Not working . Need to make changes via nmcli . 
+        master.vm.provider "virtualbox" do |v|
+            v.name =  "kubernetesmaster"
+            v.memory = 4096
+            v.cpus = 2
+        end
+    end
+
+    config.vm.define "workerone" do |workerone|
+        workerone.vm.hostname = "kubernetesworkerone"
+        workerone.vm.box = "centos/7"
+        workerone.vm.network "public_network", 
+            bridge: "Intel(R) 82579LM Gigabit Network Connection",
+            ip: "192.168.0.111" # Not working . Need to make changes via nmcli . 
+            workerone.vm.provider "virtualbox" do |v|
+                v.name =  "kubernetesworkerone"
+                v.memory = 2048
+                v.cpus = 2
+        end
+    end
+
+    config.vm.define "workertwo" do |workertwo|
+        workertwo.vm.hostname = "kubernetesworkertwo"
+        workertwo.vm.box = "centos/7"
+        workertwo.vm.network "public_network", 
+            bridge: "Intel(R) 82579LM Gigabit Network Connection",
+            ip: "192.168.0.112" # Not working . Need to make changes via nmcli . 
+            workertwo.vm.provider "virtualbox" do |v|
+                v.name =  "kubernetesworkertwo"
+                v.memory = 2048
+                v.cpus = 2
+        end
+    end
+end    

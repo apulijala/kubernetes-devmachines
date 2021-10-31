@@ -1,0 +1,5 @@
+- src: geerlingguy.docker
+  name: docker
+
+- src: geerlingguy.kubernetes
+  name: kubernetes

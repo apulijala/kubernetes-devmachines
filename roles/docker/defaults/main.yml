@@ -1,0 +1,32 @@
+---
+# defaults file for roles/docker
+packages_to_remove: 
+  - docker-client
+  - docker-client-latest
+  - docker-common
+  - docker-latest
+  - docker-latest-logrotate
+  - docker-logrotate
+  - docker-engine
+
+utils:
+  - yum-utils
+
+packages_to_install:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+
+docker_repo_url: https://download.docker.com/linux/centos/docker-ce.repo
+
+docker_config_dir: /etc/docker
+docker_config_file: "{{ docker_config_dir }}/daemon.json"
+
+
+
+
+
+
+
+
+

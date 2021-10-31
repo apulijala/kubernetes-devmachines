@@ -1,0 +1,16 @@
+- hosts: all
+  vars:
+    masters: "kubernetesmasters"
+    workers: "kubernetesworkers"
+
+  tasks:
+    - name : Get the Join token.
+      command: kubeadm token create --print-join-command
+      register: join_command
+      when: masters in group_names
+
+    - name: Set the join token as a fact. # Should find a better solution.
+      local_action: copy content="{{ join_command }}" dest="jointoken.sh"
+
+
+

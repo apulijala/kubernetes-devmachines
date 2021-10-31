@@ -1,0 +1,10 @@
+DEBUG :Provisioning VMs  
+DEBUG :Clearing  existing ssh keys
+DEBUG :Removing existing ssh key 
+DEBUG :Copy the ssh key to correct location and set correct perms
+DEBUG :Generting entries in ssh config file
+DEBUG :Triggering the ansible playbook to install docker, kubernetes and create cluster
+DEBUG :Get the join token from master
+DEBUG :Joining worker nodes to kubernetes cluster
+DEBUG :Copy the kube config file to correct location
+DEBUG :Wait for all master nodes to be ready
