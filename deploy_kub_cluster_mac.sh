@@ -45,11 +45,39 @@ command -v ansible >/dev/null 2>&1  || {
 
 }
 
-
+# Install Vagrant.
 command -v vagrant >/dev/null 2>&1  || { 
     # Download vagrant binary.
    brew install vagrant
 }
+
+# Install Helm Tools.
+# Install Vagrant.
+command -v kubectl >/dev/null 2>&1  || { 
+    # Download vagrant binary.
+    brew install bash-completion@2
+    brew install kubectl 
+    echo 'source <(kubectl completion bash)' >> “$HOME/.bash_profile
+    source <(kubectl completion zsh)
+    echo 'alias k=kubectl' >>~/.zshrc
+    echo 'complete -F __start_kubectl k' >> “$HOME/.zshrc”
+   
+}
+
+command -v helm >/dev/null 2>&1  || { 
+    # Download vagrant binary.
+    brew install helm
+    helm completion bash > /usr/local/etc/bash_completion.d/helm
+
+   
+}
+
+
+
+
+
+
+
 
 NETWORKCARDDETAILS=$(netstat -rn -f inet | grep default)
 BRIDGEINTR=$(echo "$NETWORKCARDDETAILS" | awk '{print $NF}')
@@ -170,7 +198,7 @@ kubeconfiglocation="$HOME/.kube"
 mv kubeconfig "$kubeconfiglocation/config"  && chmod 600 "$kubeconfiglocation/config"
 
 log "Wait for all master nodes to be ready"
-count=$(kubectl get nodes | grep -i NotReady | wc -l)
+count=$(kubectl get nodes | grep -wi NotReady | wc -l)
 # echo "Count of nodes is $count"
 while [[ "$count" != 0 ]]
 do 
