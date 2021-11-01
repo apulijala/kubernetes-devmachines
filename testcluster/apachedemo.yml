@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: apachedemodep
+  name: apachedemodep
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: apachedemodep
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: apachedemodep
+    spec:
+      containers:
+      - image: httpd
+        name: httpd
