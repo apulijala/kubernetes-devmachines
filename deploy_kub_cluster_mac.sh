@@ -1,4 +1,18 @@
-#!/bin/bash
+ß#!/bin/bash
+
+
+##
+## Author: Arvind K. Pulijala
+## Thanks to Priya for helping me with her MAC machine to test.
+## Bash script which is  a wraper, to provision vms using vagrant, install docker and kubernetes on vms. 
+## Create Kubernetes cluster, and join worker nodes. 
+## Pre requisites: ansible, vagrant, kubectl and Virutal box should be installed. 
+## Script automatically installs ansible , vagrant, kubectl if not present. Virtual box should be manually installed. 
+
+## Should work on Mac Machines using OS less than BigSur and Intel  Chips. Virutal box currently has problems with Apple Mac chip and Monteray. 
+## VirtualBox developers are working on fixing the Chip 
+
+
 
 function  log() {
 
@@ -18,30 +32,21 @@ log "Clear existing log"
 > "./kubelog"
 log "Provisioning VMs  "
 
-
-
 command -v brew >/dev/null 2>&1  || {
     echo "brew not found . Installing"
 	/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$HOME/.zprofile"
-    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$HOME/.profile"
-    eval "$(/opt/homebrew/bin/brew shellenv)"
+    echo 'eval "$(brew shellenv)"' >> "$HOME/.zprofile"
+    echo 'eval "$(brew shellenv)"' >> "$HOME/.profile"
+    eval "$(brew shellenv)"
 
 }
-# TODO: Remove lines laster.
-
-echo 'eval "$(brew shellenv)"' >> "$HOME/.zprofile"
-echo 'eval "$(brew shellenv)"' >> "$HOME/.profile"
-eval "$(brew shellenv)"
 
 # Install Ansible. 
-
 command -v ansible >/dev/null 2>&1  || { 
 
     echo "Installing ansible"   
     # Download vagrant binary.
     brew install ansible
-   
 
 }
 
@@ -53,31 +58,30 @@ command -v vagrant >/dev/null 2>&1  || {
 
 # Install Helm Tools.
 # Install Vagrant.
+# 
 command -v kubectl >/dev/null 2>&1  || { 
     # Download vagrant binary.
     brew install bash-completion@2
     brew install kubectl 
-    echo 'source <(kubectl completion bash)' >> “$HOME/.bash_profile
-    source <(kubectl completion zsh)
-    echo 'alias k=kubectl' >>~/.zshrc
-    echo 'complete -F __start_kubectl k' >> “$HOME/.zshrc”
+    # echo 'source <(kubectl completion bash)' >> “$HOME/.bash_profile
+   #  source <(kubectl completion zsh)
+   #  echo 'alias k=kubectl' >>~/.zshrc
+   # echo 'complete -F __start_kubectl k' >> “$HOME/.zshrc”
    
 }
 
 command -v helm >/dev/null 2>&1  || { 
     # Download vagrant binary.
     brew install helm
-    helm completion bash > /usr/local/etc/bash_completion.d/helm
+    # helm completion bash > /usr/local/etc/bash_completion.d/helm
 
    
 }
 
-
-
-
-
-
-
+# Get the  primary network interface which is connecting to network. Kubernetes nodes
+# will briged to the ip address. IP addreses of the Kubernetes nodes are automatically computed. 
+# with 1 added to the last octed of the primary interface card. Addresses are locked by disabling
+# dhcp for the kubernetes network cards  . 
 
 NETWORKCARDDETAILS=$(netstat -rn -f inet | grep default)
 BRIDGEINTR=$(echo "$NETWORKCARDDETAILS" | awk '{print $NF}')
@@ -198,17 +202,17 @@ kubeconfiglocation="$HOME/.kube"
 mv kubeconfig "$kubeconfiglocation/config"  && chmod 600 "$kubeconfiglocation/config"
 
 log "Wait for all master nodes to be ready"
-count=$(kubectl get nodes | grep -wi NotReady | wc -l)
+count=$(kubectl get nodes | grep -i NotReady | wc -l | sed 's/^ *//')
 # echo "Count of nodes is $count"
 while [[ "$count" != 0 ]]
 do 
     echo "Waiting for Worker nodes to join the cluster" 
     sleep 40
-    count=$(kubectl get nodes | grep -i NotReady | wc -l)
+    count=$(kubectl get nodes | grep -i NotReady | wc -l | sed 's/^ *//')
     # echo "Count of nodes is $count"
 done
 
 echo "Cluster Successfully Provisioned."
 printf  "Kubernetes master: %s\nKubernetes worker one: %s\nKubernetes worker two: %s\n", "$KUBMASTER" "$KUBWORKERONE" "$KUBWORKERTWO"
-echo "Kubernetes system pods. Wait till All system pods are ready to use the cluster"
+echo "Kubernetes system pods. Wait till All system pods are ready to use the cluster !! . use kubectl get po -n kube-system"
 kubectl get po -n kube-system
