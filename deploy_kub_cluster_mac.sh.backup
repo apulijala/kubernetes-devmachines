@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash
 
 function  log() {
 
@@ -9,46 +9,53 @@ function  log() {
         shift
    fi
    
-   echo "$LOGLEVEL :$@" >> "./kubelog"
-   #    echo "$LOGLEVEL :$@" 
+   # echo "$LOGLEVEL :$@" >> "./kubelog"
+   echo "$LOGLEVEL :$@" 
    return 1
 }
 
 log "Clear existing log"
 > "./kubelog"
+log "Provisioning VMs  "
 
+
+
+command -v brew >/dev/null 2>&1  || {
+    echo "brew not found . Installing"
+	/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$HOME/.zprofile"
+    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$HOME/.profile"
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+
+}
+# TODO: Remove lines laster.
+
+echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$HOME/.zprofile"
+echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$HOME/.profile"
+eval "$(/opt/homebrew/bin/brew shellenv)"
 
 # Install Ansible. 
 
 command -v ansible >/dev/null 2>&1  || { 
 
     echo "Installing ansible"   
-    sudo apt update -y 
-    sudo apt install software-properties-common -y
-    sudo add-apt-repository --yes --update ppa:ansible/ansible
-    sudo apt install ansible -y
-
-}
-
-# Install Virtualbox
-command -v virtualbox >/dev/null 2>&1  || { 
-    echo "Installing Virtualbox     " 
+    # Download vagrant binary.
+    /opt/homebrew/bin/brew install vagrant
    
-    sudo apt install virtualbox -y
-    sudo apt install virtualbox-dkms -y
-    sudo dpkg-reconfigure virtualbox-dkms
-    sudo dpkg-reconfigure virtualbox    
-    sudo modprobe vboxdrv
-    sudo modprobe vboxnetflt
 
-    
 }
 
-# Installation end
-# Getting the machine ip addresss
-BRIDGEINTR=$(netstat -rn -f inet | grep default)
+command -v vagrant >/dev/null 2>&1  || { 
+    # Download vagrant binary.
+    /opt/homebrew/bin/brew install ansible
+}
+
+NETWORKCARDDETAILS=$(netstat -rn -f inet | grep default)
+BRIDGEINTR=$(echo "$NETWORKCARDDETAILS" | awk '{print $NF}')
+
 log "Get addresses of  machines"
-BRIDGEADDR=$(ifconfig en0 | grep -w inet | awk '{print $2}')
+
+BRIDGEADDR=$(ifconfig "$BRIDGEINTR" | grep -w inet | awk '{print $2}')
 log "Removing subnet mask from address"
 BRIDGEADDR=${BRIDGEADDR%/*}    
 log "Bridge addr: $BRIDGEADDR"
@@ -61,27 +68,12 @@ KUBMASTER="$FIRST24.$((LAST8 + 1))"
 KUBWORKERONE="$FIRST24.$((LAST8 + 2))"
 KUBWORKERTWO="$FIRST24.$((LAST8 + 3))"
 KUBMACHINES=("$KUBMASTER" "$KUBWORKERONE" "$KUBWORKERTWO")
-log "Kubernetes Machines: ${KUBMACHINES[@]}"
+
+# Set up entries for ssh file. 
 
 
-# Getting the machine ip addresss
-BRIDGEINTR=$(route -n | awk '$1 ~ /0.0.0.0/ { print $NF}')
-log "Get addresses of  machines"
-BRIDGEADDR=$(ip a show $BRIDGEINTR  | grep -w "inet" | awk '{print $2}')
-log "Removing subnet mask from address"
-BRIDGEADDR=${BRIDGEADDR%/*}    
-log "Bridge addr: $BRIDGEADDR"
-FIRST24=${BRIDGEADDR%.*}       
-log "First 24 : $FIRST24"     
-LAST8=$(echo "$BRIDGEADDR" | awk -F "." '{print $NF}')
-log "Last8 : $LAST8"
-                     
-KUBMASTER="$FIRST24.$((LAST8 + 1))"
-KUBWORKERONE="$FIRST24.$((LAST8 + 2))"
-KUBWORKERTWO="$FIRST24.$((LAST8 + 3))"
-KUBMACHINES=("$KUBMASTER" "$KUBWORKERONE" "$KUBWORKERTWO")
-log "Kubernetes machine: ${KUBMACHINES[@]}"
 
+# INTR="$networkcardtobridge" vagrant up
 log "Clearing  existing ssh keys"
 for  host in "${KUBMACHINES[@]}"
 do
@@ -157,7 +149,6 @@ done
 
 # No need to change inventory. 
 log "Triggering the ansible playbook to install docker, kubernetes and create cluster"
-export PATH="/usr/bin:$PATH"
 ansible-playbook playbook.yml  --extra-vars "apiaddress=$KUBMASTER  gateway=$FIRST24.1"
 
 
@@ -196,3 +187,10 @@ echo "Cluster Successfully Provisioned."
 printf  "Kubernetes master: %s\nKubernetes worker one: %s\nKubernetes worker two: %s\n", "$KUBMASTER" "$KUBWORKERONE" "$KUBWORKERTWO"
 echo "Kubernetes system pods. Wait till All system pods are ready to use the cluster"
 kubectl get po -n kube-system
+
+
+
+
+
+
+
