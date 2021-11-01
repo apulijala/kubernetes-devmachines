@@ -46,9 +46,9 @@ command -v virtualbox >/dev/null 2>&1  || {
 
 # Installation end
 # Getting the machine ip addresss
-BRIDGEINTR=$(route -n | awk '$1 ~ /0.0.0.0/ { print $NF}')
+BRIDGEINTR=$(netstat -rn -f inet | grep default)
 log "Get addresses of  machines"
-BRIDGEADDR=$(ip a show $BRIDGEINTR  | grep -w "inet" | awk '{print $2}')
+BRIDGEADDR=$(ifconfig en0 | grep -w inet | awk '{print $2}')
 log "Removing subnet mask from address"
 BRIDGEADDR=${BRIDGEADDR%/*}    
 log "Bridge addr: $BRIDGEADDR"
