@@ -1,33 +1,44 @@
-kubeconfiglocation="$HOME/.kube"
+# Getting the machine ip addresss
+BRIDGEINTR=$(route -n | awk '$1 ~ /0.0.0.0/ { print $NF}')
+echo "Get addresses of  machines"
+BRIDGEADDR=$(ip a show $BRIDGEINTR  | grep -w "inet" | awk '{print $2}')
+echo "Removing subnet mask from address"
+BRIDGEADDR=${BRIDGEADDR%/*}    
+echo "Bridge addr: $BRIDGEADDR"
+FIRST24=${BRIDGEADDR%.*}       
+echo "First 24 : $FIRST24"     
+LAST8=$(echo "$BRIDGEADDR" | awk -F "." '{print $NF}')
+echo "Last8 : $LAST8"
+                     
+KUBMASTER="$FIRST24.$((LAST8 + 1))"
+KUBWORKERONE="$FIRST24.$((LAST8 + 2))"
+KUBWORKERTWO="$FIRST24.$((LAST8 + 3))"
+KUBMACHINES=("$KUBMASTER" "$KUBWORKERONE" "$KUBWORKERTWO")
+echo "${KUBMACHINES[@]}"
 
 
-rslt=$(ansible -m command -a "ls -l" all 2>/dev/null)
-shopt -s nocasematch
-while [[  "$rslt" =~ Failed ]]
-do 
-    echo "waiting for ssh connection"
-    sleep 5
-    rslt=$(ansible -m command -a "ls -l" all 2>/dev/null)
-done
-log "Triggering the ansible playbook to install docker, kubernetes and create cluster"
-ansible-playbook playbook.yml
-
-# Todo: Check output from above and then fail problem 
-
-log "Get the join token from master"
-kubeadmjoincmd=$(ssh kubernetesmaster kubeadm token create --print-join-command 2> /dev/null | sed -n '/kubeadm/ p')
-# Could not get it to work from Ansible. Doing it via shell script. 
-log "Joining worker nodes to kubernetes cluster"
-for worker in  kubernetesworkerone  kubernetesworkertwo
-do 
-    ssh "$worker" eval sudo "$kubeadmjoincmd"
-done
-
-log "Copy the kube config file to correct location"
-[ ! -d "$kubeconfiglocation" ] && {
-    log "Creating Kubeconfig location"
-    mkdir -pv "$kubeconfiglocation"
-}
-mv kubeconfig "$kubeconfiglocation/config"  && chmod 600 "$kubeconfiglocation/config"
+cat  <<EOF  >>  ./testconfig
+     
+Host kubernetesmaster
+HostName "$KUBMASTER"
+User student
+Port 22
+StrictHostKeyChecking no
+IdentityFile "$HOME/kubecluster/student_rsa"
 
 
+Host kubernetesworkerone
+HostName "$KUBWORKERONE"
+Port 22
+User student
+StrictHostKeyChecking no
+IdentityFile "$HOME/kubecluster/student_rsa"
+
+
+Host kubernetesworkertwo
+HostName "$KUBWORKERTWO"
+Port 22
+User student
+StrictHostKeyChecking no
+IdentityFile "$HOME/kubecluster/student_rsa"
+EOF
