@@ -1,5 +1,15 @@
 #!/bin/bash 
 
+##
+## Author: Arvind K. Pulijala
+## Thanks to Priya for helping me with her MAC machine to test.
+## Bash script which is  a wraper, to provision vms using vagrant, install docker and kubernetes on vms. 
+## Create Kubernetes cluster, and join worker nodes. 
+## Pre requisites: ansible, vagrant, kubectl and Virutal box should be installed. 
+## Script automatically installs ansible , vagrant, kubectl above tools if not present . 
+## Should work on Mac Machines using OS less than BigSur and Intel  Chips. 
+
+
 function  log() {
 
    if [[ $# ==  1 ]]; then
@@ -44,43 +54,24 @@ command -v virtualbox >/dev/null 2>&1  || {
     
 }
 
-# Installation end
-# Getting the machine ip addresss
-BRIDGEINTR=$(netstat -rn -f inet | grep default)
-log "Get addresses of  machines"
-BRIDGEADDR=$(ifconfig en0 | grep -w inet | awk '{print $2}')
-log "Removing subnet mask from address"
-BRIDGEADDR=${BRIDGEADDR%/*}    
-log "Bridge addr: $BRIDGEADDR"
-FIRST24=${BRIDGEADDR%.*}       
-log "First 24 : $FIRST24"     
-LAST8=$(echo "$BRIDGEADDR" | awk -F "." '{print $NF}')
-log "Last8 : $LAST8"
-                     
-KUBMASTER="$FIRST24.$((LAST8 + 1))"
-KUBWORKERONE="$FIRST24.$((LAST8 + 2))"
-KUBWORKERTWO="$FIRST24.$((LAST8 + 3))"
-KUBMACHINES=("$KUBMASTER" "$KUBWORKERONE" "$KUBWORKERTWO")
-log "Kubernetes Machines: ${KUBMACHINES[@]}"
-
-
-# Getting the machine ip addresss
+# Getting the primary card and 
+# ip address of network card connecting to world. 
 BRIDGEINTR=$(route -n | awk '$1 ~ /0.0.0.0/ { print $NF}')
-log "Get addresses of  machines"
-BRIDGEADDR=$(ip a show $BRIDGEINTR  | grep -w "inet" | awk '{print $2}')
-log "Removing subnet mask from address"
+log "Primary ip address of card: $BRIDGEINTR"
+BRIDGEADDR=$(ip a show "$BRIDGEINTR"  | grep -w "inet" | awk '{print $2}')
+log "Ip address of primary  network card with subnet mask: $BRIDGEADDR"
 BRIDGEADDR=${BRIDGEADDR%/*}    
-log "Bridge addr: $BRIDGEADDR"
+log "Ip address of Network card without subnet mask: $BRIDGEADDR"
 FIRST24=${BRIDGEADDR%.*}       
-log "First 24 : $FIRST24"     
+log "First 24 octets of network card : $FIRST24"     
 LAST8=$(echo "$BRIDGEADDR" | awk -F "." '{print $NF}')
-log "Last8 : $LAST8"
+log "Last8 octets of network card : $LAST8"
                      
 KUBMASTER="$FIRST24.$((LAST8 + 1))"
 KUBWORKERONE="$FIRST24.$((LAST8 + 2))"
 KUBWORKERTWO="$FIRST24.$((LAST8 + 3))"
 KUBMACHINES=("$KUBMASTER" "$KUBWORKERONE" "$KUBWORKERTWO")
-log "Kubernetes machine: ${KUBMACHINES[@]}"
+log "Kubernetes nodes: ${KUBMACHINES[@]}"
 
 log "Clearing  existing ssh keys"
 for  host in "${KUBMACHINES[@]}"
@@ -94,7 +85,6 @@ done
 }
 
 kubeconfiglocation="$HOME/.kube"
-
 [ ! -d "$HOME/kubecluster" ] && {
     log  "Creating directory for holding ssh keys"
     mkdir -pv "$HOME/kubecluster"
@@ -111,7 +101,6 @@ chmod 400 "$HOME/kubecluster/student_rsa"
 
 log "Generting entries in ssh config file"
 # Need to find a way to retrieve ip address correctly. 
-
 if   ! grep -i kubernetesmaster   "$HOME/.ssh/config"   > /dev/null          
 then 
 cat  <<EOF  >> "$HOME/.ssh/config"
@@ -158,20 +147,8 @@ done
 # No need to change inventory. 
 log "Triggering the ansible playbook to install docker, kubernetes and create cluster"
 export PATH="/usr/bin:$PATH"
+log "Invoking playbook"
 ansible-playbook playbook.yml  --extra-vars "apiaddress=$KUBMASTER  gateway=$FIRST24.1"
-
-
-# Could not do this completely in playbook.
-log "Get the join command from master"
-kubeadmjoincmd=$(ssh kubernetesmaster kubeadm token create --print-join-command 2> /dev/null | sed -n '/kubeadm/ p')
-# Could not get it to work from Ansible. Doing it via shell script. 
-log "Joining worker nodes to kubernetes cluster"
-
-# Issue join command via ssh.
-for worker in  kubernetesworkerone  kubernetesworkertwo
-do 
-    ssh "$worker" eval sudo "$kubeadmjoincmd"
-done
 
 log "Copy the kube config file to correct location"
 kubeconfiglocation="$HOME/.kube"
@@ -179,7 +156,25 @@ kubeconfiglocation="$HOME/.kube"
     log "Creating Kubeconfig location"
     mkdir -pv "$kubeconfiglocation"
 }
-mv kubeconfig "$kubeconfiglocation/config"  && chmod 600 "$kubeconfiglocation/config"
+cp kubeconfig "$kubeconfiglocation/config"  && chmod 600 "$kubeconfiglocation/config"
+
+
+# Could not do this completely in playbook.
+log "Get the Join command from master"
+kubeadmjoincmd=$(ssh kubernetesmaster kubeadm token create --print-join-command 2> /dev/null | sed -n '/kubeadm/ p')
+# Could not get it to work from Ansible. Doing it via shell script. 
+log "Joining worker nodes to the kubernetes cluster"
+
+# Issue join command via ssh.
+readynodes=$(kubectl get nodes | sed -n '2,$ p' | wc -l)
+if  [[ "$readynodes" != 3 ]]
+then
+    for worker in  kubernetesworkerone  kubernetesworkertwo
+    do 
+        ssh "$worker" eval sudo "$kubeadmjoincmd"
+    done
+fi
+
 
 log "Wait for all master nodes to be ready"
 count=$(kubectl get nodes | grep -i NotReady | wc -l)
@@ -192,7 +187,7 @@ do
     # echo "Count of nodes is $count"
 done
 
-echo "Cluster Successfully Provisioned."
+echo "Cluster Successfully Provisioned." 
 printf  "Kubernetes master: %s\nKubernetes worker one: %s\nKubernetes worker two: %s\n", "$KUBMASTER" "$KUBWORKERONE" "$KUBWORKERTWO"
-echo "Kubernetes system pods. Wait till All system pods are ready to use the cluster"
+echo "Kubernetes system pods. Wait till All system pods are ready to use the cluster. kubectl get po -n kube-system"
 kubectl get po -n kube-system

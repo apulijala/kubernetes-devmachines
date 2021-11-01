@@ -1,4 +1,11 @@
 #!/bin/bash
+
+##
+## Author: Arvind K. Pulijala
+## destorys all vms. 
+##  Removes ssh entries and removes kuberntes config file. 
+## installed software ansible, virtualbox, kubectl staty as it is. 
+
 # Remove vagrant. 
 vagrant destroy 
 

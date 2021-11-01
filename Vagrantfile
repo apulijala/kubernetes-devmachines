@@ -1,4 +1,9 @@
+# Author: Arvind K. Pulijala
+# Creates kuberntes master, worker one and two. Shell script provisioner
+# configures the machines with initial ssh user student with 'sudo' privileges.
+
 # Configure Kubernetes Master.  SSH config file. 
+
 Vagrant.configure("2")  do |config|
     config.vm.define "master" do |master|
         master.vm.hostname = "kubernetesmaster"

@@ -10,7 +10,7 @@
 ## Script automatically installs ansible , vagrant, kubectl if not present. Virtual box should be manually installed. 
 
 ## Should work on Mac Machines using OS less than BigSur and Intel  Chips. Virutal box currently has problems with Apple Mac chip and Monteray. 
-## VirtualBox developers are working on fixing the Chip 
+## VirtualBox developers are working on a fix
 
 
 
