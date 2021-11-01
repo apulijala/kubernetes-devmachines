@@ -214,5 +214,6 @@ done
 
 echo "Cluster Successfully Provisioned."
 printf  "Kubernetes master: %s\nKubernetes worker one: %s\nKubernetes worker two: %s\n", "$KUBMASTER" "$KUBWORKERONE" "$KUBWORKERTWO"
+
 echo "Kubernetes system pods. Wait till All system pods are ready to use the cluster !! . use kubectl get po -n kube-system"
 kubectl get po -n kube-system
