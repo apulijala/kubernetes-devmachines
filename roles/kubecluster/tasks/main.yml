@@ -1,6 +1,12 @@
-- name: Disable default NAT adapter from Vagrant and configure bridged adpater to correct gateway and dns server.
+- name: Disable default NAT adapter from Vagrant and configure bridged adpater with correct gateway and dns server.
   shell: |
       nmcli device disconnect enp0s3
+      sudo nmcli connection delete enp0s3
+      sudo systemctl restart NetworkManager
+      sudo nmcli device disconnect enp0s3
+      # So device stays disconnected
+      echo "DEVICE=enp0s3" > /etc/sysconfig/network-scripts/ifcfg-enp0s3 && systemctl restart NetworkManager
+
       nmcli connection modify System\ enp0s8 gw4 {{ gateway }} +ipv4.dns {{ dnsserver }}
       nmcli connection up System\ enp0s8
 
@@ -20,68 +26,53 @@
       when:
         -  checkclusterexists.stderr_lines | length  > 0
         -  checkclusterexists.stderr_lines[0] is match(".*refused.*right host or port.*")
+ 
 
   rescue:
-
+    - name: Check if kubernetes config exists. 
+      stat: 
+        path: /etc/kubernetes/manifests/kube-apiserver.yaml
+      register: config_exists
+    
     - name: Initialize Kubernetes cluster with required api address.
-      command: kubeadm init  --apiserver-advertise-address {{ apiaddress }}
+      shell: |
+                kubeadm init  --apiserver-advertise-address {{ apiaddress }}
       register: kubeadmresult
-
-    - name: Storing logs and Generated token for future purpose.
-      local_action: copy content={{ kubeadmresult }} dest="kubeadmresult"
-      become: False
-
-    - name: Get the Kubernetes configuration file to adminster cluster from local machine.
-      fetch:
-        src: "{{ kubeconfigfile }}"
-        dest: "./kubeconfig"
-        flat: yes
-
-    # Kept two as separate tasks for clarity.
+      when: not config_exists.stat.exists
+    
     - name: Configure student user to administer kubernetes cluster.
       shell: |
-        mkdir -p $HOME/.kube
-        sudo cp -f "{{ kubeconfigfile }}"  $HOME/.kube/config
-        sudo chown $(id -u):$(id -g) $HOME/.kube/config
+        if [ ! -f "$HOME/.kube/config" ]
+        then
+              mkdir -p $HOME/.kube
+              sudo cp -f "{{ kubeconfigfile }}"  $HOME/.kube/config
+              sudo chown $(id -u):$(id -g) $HOME/.kube/config
+        fi
       become_user: student
-
+    
     - name: Install Network Plugin and wait for master node to be ready.
       shell: |
-           kubectl apply -f "{{ networkplugin }}"
-           status=$(kubectl get nodes | sed -n '2 p' | awk '{print $2}')
-           while [[ "$status" != "Ready" ]]
-           do
-                  # echo "Waiting for master node to be ready: $status"
-                  sleep 3
-                  status=$(kubectl get nodes | sed -n '2 p' | awk '{print $2}')
+            status=$(kubectl get nodes | sed -n '2 p' | awk '{print $2}')
+            if [[ "$status" != "Ready" ]]
+            then 
+              kubectl apply -f "{{ networkplugin }}"
+            fi
+            
+            while [[ "$status" != "Ready" ]]
+            do
+                    # echo "Waiting for master node to be ready: $status"
+                    sleep 3
+                    status=$(kubectl get nodes | sed -n '2 p' | awk '{print $2}')
 
-           done
-           echo "Master node ready. Workers can join the cluster. "
-
+            done
+            echo "Master node ready. Workers can join the cluster. "
       become_user: student
+    
+    - name: Get the Kubernetes configuration file to adminster cluster from local machine.
+      fetch:
+            src: "{{ kubeconfigfile }}"
+            dest: "./kubeconfig"
+            flat: yes
 
-    - name: Install Network Plugin and wait for master node to be ready.
-      shell: |
-          kubectl get nodes
-
-      register: result
-      become_user: student
-
-    - name: Print the result.
-      debug:
-        msg: "Result of nodes is {{ result }}"
-
-  when: masters in group_names # masters declared as a variable, as String literals are not allowed .
-                               #  using group_names magic variable to differentiate master vs worker nodes.
-
-
-
-
-
-
-
-
-
-
-
-
+  when: masters in group_names  # masters declared as a variable, as String literals are not allowed .
+                                  #  using group_names magic variable to differentiate master vs worker nodes.

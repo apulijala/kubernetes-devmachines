@@ -10,24 +10,18 @@
     name: "{{ utils }}"
     state: installed
 
-# - name: Configure docker repository. Only installing the repository. 
-# Not doing full configuration.
-#   yum_repository: 
-#     name: docker 
-#     description: Docker Repository
-#     baseurl: "{{ docker_repo_url }}"
-
-- name: Install yum repository for docker. 
-  shell: 
-    cmd: yum-config-manager --add-repo  https://download.docker.com/linux/centos/docker-ce.repo
-  changed_when: false
+- name: Install Docker repository.
+  get_url: 
+    url : https://download.docker.com/linux/centos/docker-ce.repo
+    dest: "/etc/yum.repos.d/docker-ce.repo"
+    force : no
 
 - name: Install Docker packages. 
   yum: 
     name: "{{ packages_to_install }}"
     state: installed
 
-- name: Create cgroup directory. 
+- name: Create Docker configuration directory. 
   ansible.builtin.file:
     path: /etc/docker
     state: directory

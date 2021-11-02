@@ -11,10 +11,10 @@
     state: permissive
 
 - name: Remove swap entry from fstab file
-  replace:
+  lineinfile:
     path: /etc/fstab
-    regexp: '^([^#].*?\sswap\s+sw\s+.*)$'
-    replace: '# \1'
+    regexp:  'swap' # '^([^#].*?\sswap\s+sw\s+.*)$'
+    state: absent
 
 - name: Disable swap from the command
   command: swapoff -a
@@ -26,7 +26,7 @@
     name: "{{ item }}"
     state: "present"
     sysctl_file: "/etc/sysctl.d/k8s.conf"
-    value: 1
+    value: "1"
   loop: "{{ kernel_settings }}"
 
 - name: "Set the kernel settings"
