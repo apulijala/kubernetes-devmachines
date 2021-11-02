@@ -1,20 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  
   labels:
-    app: apachedemodep
-  name: apachedemodep
+    app: apache
+  name: apache
 spec:
-  replicas: 5
+  replicas: 4
   selector:
     matchLabels:
-      app: apachedemodep
+      app: apache
   strategy: {}
   template:
     metadata:
       labels:
-        app: apachedemodep
+        app: apache
     spec:
       containers:
       - image: httpd
         name: httpd
+        
