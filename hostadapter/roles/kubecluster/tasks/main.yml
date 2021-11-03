@@ -1,16 +1,3 @@
-- name: Disable default NAT adapter from Vagrant and configure bridged adpater with correct gateway and dns server.
-  shell: |
-      nmcli device disconnect enp0s3
-      sudo nmcli connection delete enp0s3
-      sudo systemctl restart NetworkManager
-      sudo nmcli device disconnect enp0s3
-      # So device stays disconnected
-      echo "DEVICE=enp0s3" > /etc/sysconfig/network-scripts/ifcfg-enp0s3 && systemctl restart NetworkManager
-
-      nmcli connection modify System\ enp0s8 gw4 {{ gateway }} +ipv4.dns {{ dnsserver }}
-      nmcli connection up System\ enp0s8
-
-
 - name: Create Kubernetes cluster
   block:
     - name: Check if cluster is already there # Using get nodes to test if cluster is present. Need to check if any better test.

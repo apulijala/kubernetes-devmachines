@@ -10,7 +10,7 @@
   roles:
     - roles/docker
     - roles/kubernetes
-    - roles/kubecluster
+    
 
   tasks:
     - name : Some shortcuts for easy management.

@@ -2,12 +2,13 @@
 
 ##
 ## Author: Arvind K. Pulijala
-## Thanks to Priya for helping me with her MAC machine to test.
 ## Bash script which is  a wraper, to provision vms using vagrant, install docker and kubernetes on vms. 
 ## Create Kubernetes cluster, and join worker nodes. 
 ## Pre requisites: ansible, vagrant, kubectl and Virutal box should be installed. 
 ## Script automatically installs ansible , vagrant, kubectl above tools if not present . 
 ## Should work on Mac Machines using OS less than BigSur and Intel  Chips. 
+
+## Get node info.  kubectl get nodes -o wide | grep master | awk '{print $6}'
 
 
 function  log() {
@@ -54,22 +55,12 @@ command -v virtualbox >/dev/null 2>&1  || {
     
 }
 
-# Getting the primary card and 
-# ip address of network card connecting to world. 
-BRIDGEINTR=$(route -n | awk '$1 ~ /0.0.0.0/ { print $NF}')
-log "Primary ip address of card: $BRIDGEINTR"
-BRIDGEADDR=$(ip a show "$BRIDGEINTR"  | grep -w "inet" | awk '{print $2}')
-log "Ip address of primary  network card with subnet mask: $BRIDGEADDR"
-BRIDGEADDR=${BRIDGEADDR%/*}    
-log "Ip address of Network card without subnet mask: $BRIDGEADDR"
-FIRST24=${BRIDGEADDR%.*}       
-log "First 24 octets of network card : $FIRST24"     
-LAST8=$(echo "$BRIDGEADDR" | awk -F "." '{print $NF}')
-log "Last8 octets of network card : $LAST8"
+
                      
-KUBMASTER="$FIRST24.$((LAST8 + 1))"
-KUBWORKERONE="$FIRST24.$((LAST8 + 2))"
-KUBWORKERTWO="$FIRST24.$((LAST8 + 3))"
+KUBMASTER="192.168.50.10"
+KUBWORKERONE="192.168.50.11"
+KUBWORKERTWO="192.168.50.12"
+
 KUBMACHINES=("$KUBMASTER" "$KUBWORKERONE" "$KUBWORKERTWO")
 log "Kubernetes nodes: ${KUBMACHINES[@]}"
 
@@ -111,6 +102,8 @@ User student
 Port 22
 StrictHostKeyChecking no
 IdentityFile "$HOME/kubecluster/student_rsa"
+ForwardX11 no
+
 
 
 Host kubernetesworkerone
@@ -119,7 +112,7 @@ Port 22
 User student
 StrictHostKeyChecking no
 IdentityFile "$HOME/kubecluster/student_rsa"
-
+ForwardX11 no
 
 Host kubernetesworkertwo
 HostName "$KUBWORKERTWO"
@@ -127,12 +120,18 @@ Port 22
 User student
 StrictHostKeyChecking no
 IdentityFile "$HOME/kubecluster/student_rsa"
+ForwardX11 no
 EOF
 
 fi
 
-log "Provisioning Virtual Machine"
-BRIDGE=$BRIDGEINTR KUBMASTER=$KUBMASTER KUBWORKERONE=$KUBWORKERONE  KUBWORKERTWO=$KUBWORKERTWO ./vagrant up
+log "Enabling drivers required to enable host adapter."
+sudo modprobe vboxnetadp
+sudo modprobe vboxnetflt
+sudo modprobe vboxdrv
+
+log "Provisioning Virtual Machines in host only network"
+./vagrant up
 
 log "Waiting until you get ssh connection"
 rslt=$(ansible -m command -a "ls -l" all 2>/dev/null)
@@ -148,35 +147,35 @@ done
 log "Triggering the ansible playbook to install docker, kubernetes and create cluster"
 export PATH="/usr/bin:$PATH"
 log "Invoking playbook"
-ansible-playbook playbook.yml  --extra-vars "apiaddress=$KUBMASTER  gateway=$FIRST24.1"
+ansible-playbook playbook.yml  
 
-log "Copy the kube config file to correct location"
+# On Master node create a cluster as student. /vagrant is mapped 
+# to current directory.
+ssh kubernetesmaster  chmod +x /vagrant/master.sh 2> /dev/null
+ssh kubernetesmaster  bash /vagrant/master.sh  2> /dev/null
+
+# On local machine copy the  config file to the correct location on local machine.
+log "Copy the kube config file to correct location on local machine."
 kubeconfiglocation="$HOME/.kube"
 [ ! -d "$kubeconfiglocation" ] && {
     log "Creating Kubeconfig location"
     mkdir -pv "$kubeconfiglocation"
 }
-cp kubeconfig "$kubeconfiglocation/config"  && chmod 600 "$kubeconfiglocation/config"
 
+cp -f ./configs/kubeconfig "$kubeconfiglocation/config" && chmod 600 "$kubeconfiglocation/config"
 
-# Could not do this completely in playbook.
-log "Get the Join command from master"
-kubeadmjoincmd=$(ssh kubernetesmaster kubeadm token create --print-join-command 2> /dev/null | sed -n '/kubeadm/ p')
-# Could not get it to work from Ansible. Doing it via shell script. 
-log "Joining worker nodes to the kubernetes cluster"
-
-# Issue join command via ssh.
+# Issue join command via ssh and ssh command copied from above.
 readynodes=$(kubectl get nodes | sed -n '2,$ p' | wc -l)
 if  [[ "$readynodes" != 3 ]]
 then
     for worker in  kubernetesworkerone  kubernetesworkertwo
     do 
-        ssh "$worker" eval sudo "$kubeadmjoincmd"
+        ssh "$worker"  sudo bash /vagrant/configs/join.sh 2> /dev/null
     done
 fi
 
 
-log "Wait for all master nodes to be ready"
+log "Wait for all cluster nodes to be ready"
 count=$(kubectl get nodes | grep -i NotReady | wc -l)
 # echo "Count of nodes is $count"
 while [[ "$count" != 0 ]]
@@ -186,6 +185,10 @@ do
     count=$(kubectl get nodes | grep -i NotReady | wc -l)
     # echo "Count of nodes is $count"
 done
+
+log "Cleaning up"
+rm -rf ./configs/   kubeadmresult   kubeconfig
+
 
 echo "Cluster Successfully Provisioned." 
 printf  "Kubernetes master: %s\nKubernetes worker one: %s\nKubernetes worker two: %s\n", "$KUBMASTER" "$KUBWORKERONE" "$KUBWORKERTWO"
