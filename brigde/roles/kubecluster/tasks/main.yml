@@ -1,0 +1,78 @@
+- name: Disable default NAT adapter from Vagrant and configure bridged adpater with correct gateway and dns server.
+  shell: |
+      nmcli device disconnect enp0s3
+      sudo nmcli connection delete enp0s3
+      sudo systemctl restart NetworkManager
+      sudo nmcli device disconnect enp0s3
+      # So device stays disconnected
+      echo "DEVICE=enp0s3" > /etc/sysconfig/network-scripts/ifcfg-enp0s3 && systemctl restart NetworkManager
+
+      nmcli connection modify System\ enp0s8 gw4 {{ gateway }} +ipv4.dns {{ dnsserver }}
+      nmcli connection up System\ enp0s8
+
+
+- name: Create Kubernetes cluster
+  block:
+    - name: Check if cluster is already there # Using get nodes to test if cluster is present. Need to check if any better test.
+      shell: |
+        kubectl get nodes | wc -l
+      register: checkclusterexists
+      ignore_errors: True
+      become_user: student
+
+    - name: Fail if cluster does not exist.
+      fail:
+        msg: Kubernetes cluster not yet provisioned. Going to provision one.
+      when:
+        -  checkclusterexists.stderr_lines | length  > 0
+        -  checkclusterexists.stderr_lines[0] is match(".*refused.*right host or port.*")
+ 
+
+  rescue:
+    - name: Check if kubernetes config exists. 
+      stat: 
+        path: /etc/kubernetes/manifests/kube-apiserver.yaml
+      register: config_exists
+    
+    - name: Initialize Kubernetes cluster with required api address.
+      shell: |
+                kubeadm init  --apiserver-advertise-address {{ apiaddress }}
+      register: kubeadmresult
+      when: not config_exists.stat.exists
+    
+    - name: Configure student user to administer kubernetes cluster.
+      shell: |
+        if [ ! -f "$HOME/.kube/config" ]
+        then
+              mkdir -p $HOME/.kube
+              sudo cp -f "{{ kubeconfigfile }}"  $HOME/.kube/config
+              sudo chown $(id -u):$(id -g) $HOME/.kube/config
+        fi
+      become_user: student
+    
+    - name: Install Network Plugin and wait for master node to be ready.
+      shell: |
+            status=$(kubectl get nodes | sed -n '2 p' | awk '{print $2}')
+            if [[ "$status" != "Ready" ]]
+            then 
+              kubectl apply -f "{{ networkplugin }}"
+            fi
+            
+            while [[ "$status" != "Ready" ]]
+            do
+                    # echo "Waiting for master node to be ready: $status"
+                    sleep 3
+                    status=$(kubectl get nodes | sed -n '2 p' | awk '{print $2}')
+
+            done
+            echo "Master node ready. Workers can join the cluster. "
+      become_user: student
+    
+    - name: Get the Kubernetes configuration file to adminster cluster from local machine.
+      fetch:
+            src: "{{ kubeconfigfile }}"
+            dest: "./kubeconfig"
+            flat: yes
+
+  when: masters in group_names  # masters declared as a variable, as String literals are not allowed .
+                                  #  using group_names magic variable to differentiate master vs worker nodes.

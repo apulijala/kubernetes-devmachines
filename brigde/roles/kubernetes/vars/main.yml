@@ -1,0 +1,23 @@
+---
+# vars file for kubernetes
+kubernetes_repo: /etc/yum.repos.d/kubernetes.repo
+all_services:
+  - name: kubelet
+    state: started
+    enabled: yes
+
+  - name: firewalld
+    state: stopped
+    enabled: no
+
+kernel_settings:
+  - net.bridge.bridge-nf-call-ip6tables
+  - net.bridge.bridge-nf-call-iptables
+
+kubpackages:
+  - kubelet
+  - kubeadm
+
+kubeconfigfile: /etc/kubernetes/admin.conf
+
+

@@ -1,0 +1,50 @@
+---
+# tasks file for kubernetes
+- name: Configure Kubernetes Repository
+  copy:
+    src: kubernetes.repo
+    dest: "{{ kubernetes_repo }}"
+
+- name : Disable selinux
+  ansible.posix.selinux:
+    policy: targeted
+    state: permissive
+
+- name: Remove swap entry from fstab file
+  lineinfile:
+    path: /etc/fstab
+    regexp:  'swap' # '^([^#].*?\sswap\s+sw\s+.*)$'
+    state: absent
+
+- name: Disable swap from the command
+  command: swapoff -a
+  when: ansible_swaptotal_mb > 0
+
+
+- name: "Enable  kernel settings for packet forwarding"
+  sysctl:
+    name: "{{ item }}"
+    state: "present"
+    sysctl_file: "/etc/sysctl.d/k8s.conf"
+    value: "1"
+  loop: "{{ kernel_settings }}"
+
+- name: "Set the kernel settings"
+  command: "sysctl --system"
+
+
+- name: Install kubeadm and kubectl
+  yum:
+    name: "{{ kubpackages }}"
+    state: installed
+
+
+
+- name:  Start  and enable kubelet service. Disable and stop firewalld
+  service:
+    name: "{{ item.name }}"
+    state: "{{ item.state }}"
+    enabled: "{{ item.enabled }}"
+  loop: "{{ all_services }}"
+
+

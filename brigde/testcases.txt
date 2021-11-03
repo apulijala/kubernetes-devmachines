@@ -1,0 +1,3 @@
+1) When vm  machines are newly provisioned.
+2) when vms are started.
+3) when script is run on existing machines.

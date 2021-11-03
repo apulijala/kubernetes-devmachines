@@ -1,0 +1,7 @@
+[kubernetesmasters]
+kubernetesmaster
+
+
+[kubernetesworkers]
+kubernetesworkerone
+kubernetesworkertwo

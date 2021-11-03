@@ -1,0 +1,46 @@
+---
+# tasks file for roles/docker
+# - name: Remove docker packages 
+#   yum:
+#     name: "{{ packages_to_remove }}"
+#     state: absent
+
+- name: Install utils packages. 
+  yum: 
+    name: "{{ utils }}"
+    state: installed
+
+- name: Install Docker repository.
+  get_url: 
+    url : https://download.docker.com/linux/centos/docker-ce.repo
+    dest: "/etc/yum.repos.d/docker-ce.repo"
+    force : no
+
+- name: Install Docker packages. 
+  yum: 
+    name: "{{ packages_to_install }}"
+    state: installed
+
+- name: Create Docker configuration directory. 
+  ansible.builtin.file:
+    path: /etc/docker
+    state: directory
+    recurse: yes
+    owner: root
+    group: root
+
+- name: copy the file to the directory. 
+  ansible.builtin.copy:
+    src: "daemon.json"
+    dest: "{{ docker_config_file }}"
+    owner: root
+    group: root
+  notify: restart docker
+
+
+- name: Start docker engine. 
+  service: 
+    name: docker 
+    enabled: yes
+    state: started
+

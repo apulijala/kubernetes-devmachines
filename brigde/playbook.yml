@@ -1,0 +1,34 @@
+- hosts: all
+  vars:
+    kubernetes_allow_pods_on_master: false
+    kubernetes_apiserver_advertise_address: 192.168.0.120
+    managepkgs:
+      - bash-completion
+      - vim
+    masters: "kubernetesmasters"
+
+  roles:
+    - roles/docker
+    - roles/kubernetes
+    - roles/kubecluster
+
+  tasks:
+    - name : Some shortcuts for easy management.
+      lineinfile:
+        path: /etc/profile
+        line: alias c=clear; set -o vi
+        state: present
+
+    - name: Install bash completer and vim for easy management of Kubernetes cluster.
+      yum:
+        name: "{{ managepkgs }}"
+        state: present
+    
+    - name:  "Configure bash completer correctly"
+      shell: |
+        kubectl completion bash >/etc/bash_completion.d/kubectl
+      when: masters in group_names 
+
+
+
+

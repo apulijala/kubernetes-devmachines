@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  
+  labels:
+    app: apache
+  name: apache
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: apache
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: apache
+    spec:
+      containers:
+      - image: httpd
+        name: httpd
+        
