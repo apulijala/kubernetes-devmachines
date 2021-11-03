@@ -10,14 +10,6 @@
 
 ## Get master node.  kubectl get nodes -o wide | grep master | awk '{print $6}'
 
-## DNS has to be set correctly on /etc/hosts. if --node-name is useed. otherwise
-## will bind to 10.0.2.5 which is wrong.
-## --apiserver-advertise-address="$MASTER_IP" .   Will  set cluster on correct network card.
-## --apiserver-cert-extra-sans="$MASTER_IP" 
-## --pod-network-cidr="$POD_CIDR"  # Should not overlap any of the network cards CIDR.
-## --node-name "$NODENAME" # NODENAME should be wrong.
-
-
 
 function  log() {
 
