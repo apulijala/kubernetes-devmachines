@@ -50,11 +50,7 @@ command -v virtualbox >/dev/null 2>&1  || {
     sudo dpkg-reconfigure virtualbox-dkms
     sudo dpkg-reconfigure virtualbox    
     sudo modprobe vboxdrv
-    sudo modprobe vboxnetflt
-
-    
 }
-
 
                      
 KUBMASTER="192.168.50.10"
@@ -146,7 +142,7 @@ done
 # No need to change inventory. 
 log "Triggering the ansible playbook to install docker, kubernetes and create cluster"
 export PATH="/usr/bin:$PATH"
-log "Invoking playbook"
+log "Invoking playbook to provision docker and Kubernetes "
 ansible-playbook playbook.yml  
 
 # On Master node create a cluster as student. /vagrant is mapped 
