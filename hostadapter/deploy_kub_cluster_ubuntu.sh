@@ -8,7 +8,7 @@
 ## Script automatically installs ansible , vagrant, kubectl above tools if not present . 
 ## Should work on Mac Machines using OS less than BigSur and Intel  Chips. 
 
-## Get node info.  kubectl get nodes -o wide | grep master | awk '{print $6}'
+## Get master node.  kubectl get nodes -o wide | grep master | awk '{print $6}'
 
 
 function  log() {
